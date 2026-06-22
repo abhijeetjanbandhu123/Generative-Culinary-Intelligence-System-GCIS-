@@ -35,7 +35,7 @@ async function scanWithOpenRouter(image, prompt) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "qwen/qwen2.5-vl-7b-instruct:free",
+      model: "google/gemma-4-31b-it:free",
       messages: [{
         role: "user",
         content: [
