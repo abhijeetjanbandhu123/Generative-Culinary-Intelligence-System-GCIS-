@@ -25,6 +25,32 @@ async function withTimeout(promise, ms = 25000) {
 }
 
 // --------------------------------------------------------------------------
+// ✅ NEW: OpenRouter fallback for image scanning (only used if GEMINI_API_KEY is missing)
+// --------------------------------------------------------------------------
+async function scanWithOpenRouter(image, prompt) {
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer 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`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.0-flash-exp:free",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: image } },
+          { type: "text", text: prompt }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.choices[0].message.content.trim();
+}
+
+// --------------------------------------------------------------------------
 // SANDBOX SIMULATOR DATA
 // --------------------------------------------------------------------------
 const MOCK_DETECTION = [
@@ -56,6 +82,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     apiConfigured: !!genAI,
+    openRouterConfigured: !!process.env.OPENROUTER_API_KEY, // ✅ NEW
     timestamp: new Date()
   });
 });
@@ -68,13 +95,6 @@ app.post('/api/scan', async (req, res) => {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    if (!genAI) {
-      return res.json({ items: MOCK_DETECTION, note: 'Offline sandbox mode' });
-    }
-
-    const imagePart = fileToGenerativePart(image);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
     const prompt = `Analyze the image of this refrigerator, pantry shelf, or collection of food. 
 Identify all food items, ingredients, vegetables, fruits, condiments, or packaged goods.
 For each item, output a JSON array of objects with the exact schema below. 
@@ -92,10 +112,21 @@ Schema keys:
 
 Provide ONLY the raw JSON array. Do not include markdown code block formatting or any additional text.`;
 
-    const result = await withTimeout(model.generateContent([prompt, imagePart]));
-    const response = await result.response;
-    let text = response.text().trim();
-    
+    let text;
+
+    // ✅ CHANGED: Try Gemini first, fall back to OpenRouter if key is missing
+    if (genAI) {
+      const imagePart = fileToGenerativePart(image);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const result = await withTimeout(model.generateContent([prompt, imagePart]));
+      const response = await result.response;
+      text = response.text().trim();
+    } else if (process.env.OPENROUTER_API_KEY) {
+      text = await withTimeout(scanWithOpenRouter(image, prompt));
+    } else {
+      return res.json({ items: MOCK_DETECTION, note: 'Offline sandbox mode' });
+    }
+
     if (text.startsWith('```')) {
       text = text.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
     }

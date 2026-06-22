@@ -65,12 +65,13 @@ function App() {
     ];
   });
 
-  // Check backend server connection and Gemini API status
+  // Check backend server connection and API status
+  // ✅ CHANGED: treat as configured if either Gemini or OpenRouter is active
   useEffect(() => {
     fetch('/api/health')
       .then((res) => res.json())
       .then((data) => {
-        setApiStatus({ checked: true, configured: data.apiConfigured });
+        setApiStatus({ checked: true, configured: data.apiConfigured || data.openRouterConfigured });
       })
       .catch((err) => {
         console.warn('Backend server not running or unreachable. Using mock simulation.');
