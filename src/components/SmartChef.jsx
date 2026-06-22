@@ -14,7 +14,7 @@ async function callAI(prompt) {
       'X-Title': 'SmartPantry'
     },
     body: JSON.stringify({
-   model: 'google/gemma-3-12b-it:free',
+  model: 'openrouter/free',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 2048,
       temperature: 0.7
