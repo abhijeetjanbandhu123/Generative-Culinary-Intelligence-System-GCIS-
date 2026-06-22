@@ -192,7 +192,10 @@ Schema keys:
 
 Provide ONLY the raw JSON array. Do not include markdown code block formatting (like \`\`\`json) or any additional text.`;
 
-    const result = await model.generateContent(prompt);
+   const result = await Promise.race([
+  model.generateContent(prompt),
+  new Promise((_, reject) => setTimeout(() => reject(new Error('Gemini timeout')), 8000))
+]);
     const response = await result.response;
     let text = response.text().trim();
     
