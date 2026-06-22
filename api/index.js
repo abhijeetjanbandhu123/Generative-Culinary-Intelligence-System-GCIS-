@@ -31,7 +31,7 @@ async function scanWithOpenRouter(image, prompt) {
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer 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`,
+      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
