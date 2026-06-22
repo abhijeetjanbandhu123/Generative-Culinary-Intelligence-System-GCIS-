@@ -66,7 +66,6 @@ function App() {
   });
 
   // Check backend server connection and API status
-  // ✅ CHANGED: treat as configured if either Gemini or OpenRouter is active
   useEffect(() => {
     fetch('/api/health')
       .then((res) => res.json())
@@ -92,25 +91,19 @@ function App() {
       const updated = [...prev];
       
       newItems.forEach((item) => {
-        // Calculate expiration date string from today + expiryDays
-        const days = parseInt(item.expiryDays) || 7; // default 7 days
+        const days = parseInt(item.expiryDays) || 7;
         const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         
-        // Consolidate duplicates. It would be dumb to have three separate lines for "Apple"
-        // if they scanned twice, so we combine quantities and keep the shorter expiry date.
         const matchIndex = updated.findIndex(
           (p) => p.name.toLowerCase() === item.name.toLowerCase()
         );
         
         if (matchIndex > -1) {
-          // Add quantity to existing item
           updated[matchIndex].quantity = Number(updated[matchIndex].quantity) + Number(item.quantity);
-          // Keep the shorter expiry date to be safe
           if (new Date(expiryDate) < new Date(updated[matchIndex].expiryDate)) {
             updated[matchIndex].expiryDate = expiryDate;
           }
         } else {
-          // Add as new item
           updated.push({
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
             name: item.name,
@@ -127,31 +120,26 @@ function App() {
     });
   };
 
-  // Helper: Delete single item
   const deleteItem = (id) => {
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
-  // Helper: Clear entire pantry
   const clearPantry = () => {
     if (window.confirm("Are you sure you want to clear all items from your pantry?")) {
       setPantry([]);
     }
   };
 
-  // Helper: Update item property
   const updateItem = (id, updatedFields) => {
     setPantry((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updatedFields } : item))
     );
   };
 
-  // Filter pantry to ensure only valid items with quantity > 0 are passed down
   const activePantry = pantry.filter(
     (item) => item.name && item.name.trim() !== '' && Number(item.quantity) > 0
   );
 
-  // Tab rendering helper
   const renderTabContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -181,7 +169,7 @@ function App() {
       <aside className="sidebar glass">
         <div className="logo-container">
           <span className="logo-icon">🍳</span>
-          <h1 className="logo-text">SmartPantry</h1>
+          <h1 className="logo-text" style={{ fontSize: '0.85rem', lineHeight: '1.3' }}>Generative Culinary Intelligence System</h1>
         </div>
 
         <nav>
