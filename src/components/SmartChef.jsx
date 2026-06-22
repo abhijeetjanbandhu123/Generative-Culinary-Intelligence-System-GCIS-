@@ -14,7 +14,7 @@ async function callAI(prompt) {
       'X-Title': 'SmartPantry'
     },
     body: JSON.stringify({
-      model: 'mistralai/mistral-7b-instruct:free',
+   model: 'google/gemma-3-12b-it:free',
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 2048,
       temperature: 0.7
@@ -302,4 +302,4 @@ Return ONLY the raw JSON array. No markdown, no extra text.`;
   );
 }
 
-export default SmartChef;
+export default SmartChef; 
