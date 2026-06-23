@@ -99,10 +99,11 @@ function App() {
         );
         
         if (matchIndex > -1) {
-          updated[matchIndex].quantity = Number(updated[matchIndex].quantity) + Number(item.quantity);
-          if (new Date(expiryDate) < new Date(updated[matchIndex].expiryDate)) {
-            updated[matchIndex].expiryDate = expiryDate;
-          }
+          // Replace with new scan data — don't accumulate quantities
+          updated[matchIndex].quantity = Number(item.quantity);
+          updated[matchIndex].unit = item.unit || updated[matchIndex].unit;
+          updated[matchIndex].expiryDate = expiryDate;
+          updated[matchIndex].freshnessPrediction = item.freshnessPrediction || updated[matchIndex].freshnessPrediction;
         } else {
           updated.push({
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5),

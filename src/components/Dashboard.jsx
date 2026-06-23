@@ -51,7 +51,7 @@ if (totalUniqueItems > 0) {
   return (
     <div>
       <header className="page-header">
-        <h2 className="page-title">Welcome to SmartPantry</h2>
+        <h2 className="page-title">Welcome to Generative Culinary Intelligence System</h2>
         <p className="page-subtitle">Here is a summary of your food inventory and kitchen health status.</p>
       </header>
 
