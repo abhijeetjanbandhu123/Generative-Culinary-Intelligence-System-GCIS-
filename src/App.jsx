@@ -6,7 +6,7 @@ import Inventory from './components/Inventory.jsx';
 import SmartChef from './components/SmartChef.jsx';
 
 // ─── Priority List Page ───────────────────────────────────────────────────────
-function PriorityList({ pantry, setActiveTab }) {
+function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
   const calculateDaysLeft = (expiryDateStr) => {
     const today = new Date(); today.setHours(0,0,0,0);
     const expiry = new Date(expiryDateStr); expiry.setHours(0,0,0,0);
@@ -18,8 +18,18 @@ function PriorityList({ pantry, setActiveTab }) {
     .filter(item => item.daysLeft >= 0)
     .sort((a, b) => a.daysLeft - b.daysLeft);
 
+  // Low to moderate freshness = 7 days or less
+  const urgentItems = priorityList.filter(item => item.daysLeft <= 7);
+
   const getColor = (d) => d <= 1 ? '#ef4444' : d <= 3 ? '#f97316' : d <= 7 ? '#eab308' : '#10b981';
   const getLabel = (d) => d === 0 ? 'Use Today!' : d === 1 ? 'Use Tomorrow' : `${d} days left`;
+
+  const handleGenerateFromUrgent = () => {
+    // Pre-select only urgent (low-moderate freshness) items
+    const urgentNames = urgentItems.map(item => item.name);
+    setPreSelectedIngredients(urgentNames);
+    setActiveTab('chef');
+  };
 
   return (
     <div>
@@ -36,6 +46,22 @@ function PriorityList({ pantry, setActiveTab }) {
         </div>
       ) : (
         <div className="glass" style={{ padding: '1.8rem' }}>
+
+          {/* Urgency legend */}
+          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+            {[
+              { color: '#ef4444', label: 'Critical (0–1 days)' },
+              { color: '#f97316', label: 'Urgent (2–3 days)' },
+              { color: '#eab308', label: 'Moderate (4–7 days)' },
+              { color: '#10b981', label: 'Fresh (7+ days)' },
+            ].map(({ color, label }) => (
+              <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: color, display: 'inline-block' }} />
+                {label}
+              </span>
+            ))}
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {priorityList.map((item, idx) => {
               const color = getColor(item.daysLeft);
@@ -77,9 +103,28 @@ function PriorityList({ pantry, setActiveTab }) {
               );
             })}
           </div>
-          <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={() => setActiveTab('chef')}>
-            <ChefHat size={16} /> Generate Recipes From These
-          </button>
+
+          {/* Button section */}
+          <div style={{ marginTop: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {urgentItems.length > 0 ? (
+              <button className="btn-primary" onClick={handleGenerateFromUrgent}>
+                <Flame size={16} /> Generate Recipes from {urgentItems.length} Urgent Item{urgentItems.length !== 1 ? 's' : ''}
+              </button>
+            ) : (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                ✅ All items are fresh — no urgent ingredients right now!
+              </p>
+            )}
+            <button className="btn-secondary" onClick={() => { setPreSelectedIngredients([]); setActiveTab('chef'); }}>
+              <ChefHat size={16} /> Open Recipe Builder
+            </button>
+          </div>
+
+          {urgentItems.length > 0 && (
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+              ⚡ This will pre-select <strong>{urgentItems.map(i => i.name).join(', ')}</strong> in the Recipe Builder automatically.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -162,6 +207,7 @@ function WasteLog({ pantry, setActiveTab }) {
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [apiStatus, setApiStatus] = useState({ checked: false, configured: false });
+  const [preSelectedIngredients, setPreSelectedIngredients] = useState([]);
 
   const [pantry, setPantry] = useState(() => {
     const saved = localStorage.getItem('smart_pantry_items');
@@ -192,6 +238,11 @@ function App() {
   useEffect(() => {
     localStorage.setItem('smart_pantry_items', JSON.stringify(pantry));
   }, [pantry]);
+
+  // Clear pre-selection when user manually navigates away from chef tab
+  useEffect(() => {
+    if (activeTab !== 'chef') setPreSelectedIngredients([]);
+  }, [activeTab]);
 
   const addItemsToPantry = (newItems) => {
     const today = new Date().toISOString().split('T')[0];
@@ -236,14 +287,13 @@ function App() {
       case 'dashboard': return <Dashboard pantry={activePantry} setActiveTab={setActiveTab} />;
       case 'scanner': return <Scanner addItemsToPantry={addItemsToPantry} setActiveTab={setActiveTab} apiConfigured={apiStatus.configured} />;
       case 'inventory': return <Inventory pantry={activePantry} deleteItem={deleteItem} clearPantry={clearPantry} updateItem={updateItem} addItems={addItemsToPantry} />;
-      case 'chef': return <SmartChef pantry={activePantry} />;
-      case 'priority': return <PriorityList pantry={activePantry} setActiveTab={setActiveTab} />;
+      case 'chef': return <SmartChef pantry={activePantry} preSelectedIngredients={preSelectedIngredients} />;
+      case 'priority': return <PriorityList pantry={activePantry} setActiveTab={setActiveTab} setPreSelectedIngredients={setPreSelectedIngredients} />;
       case 'waste': return <WasteLog pantry={activePantry} setActiveTab={setActiveTab} />;
       default: return <Dashboard pantry={activePantry} setActiveTab={setActiveTab} />;
     }
   };
 
-  // Count expired items for badge
   const expiredCount = activePantry.filter(item => {
     const today = new Date(); today.setHours(0,0,0,0);
     const expiry = new Date(item.expiryDate); expiry.setHours(0,0,0,0);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChefHat, Clock, Gauge, Utensils, AlertTriangle, Sparkles, CheckSquare, Square, Plus } from 'lucide-react';
+import { ChefHat, Clock, Gauge, Utensils, AlertTriangle, Sparkles, CheckSquare, Square, Plus, Flame } from 'lucide-react';
 
 const OR_KEY = import.meta.env.VITE_OPENROUTER_KEY;
 const PAGE_SIZE = 2;
@@ -167,8 +167,8 @@ function RecipeCard({ recipe }) {
   );
 }
 
-function SmartChef({ pantry }) {
-  const [selectedIngredients, setSelectedIngredients] = useState([]);
+function SmartChef({ pantry, preSelectedIngredients = [] }) {
+  const [selectedIngredients, setSelectedIngredients] = useState(preSelectedIngredients);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [recipes, setRecipes] = useState([]);
@@ -301,6 +301,21 @@ Return ONLY the raw JSON array. No markdown, no extra text.`;
         }}>
           <AlertTriangle size={18} />
           <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {preSelectedIngredients.length > 0 && (
+        <div style={{
+          background: 'rgba(249, 115, 22, 0.08)',
+          border: '1px solid rgba(249, 115, 22, 0.25)',
+          borderRadius: '12px', padding: '12px 18px',
+          marginBottom: '1.5rem',
+          display: 'flex', alignItems: 'center', gap: '10px'
+        }}>
+          <Flame size={16} color="#f97316" />
+          <span style={{ fontSize: '0.88rem', color: '#f97316', fontWeight: 500 }}>
+            {preSelectedIngredients.length} urgent ingredient{preSelectedIngredients.length !== 1 ? 's' : ''} pre-selected from Priority List — ready to generate!
+          </span>
         </div>
       )}
 
