@@ -170,7 +170,10 @@ function App() {
       <aside className="sidebar glass">
         <div className="logo-container">
           <span className="logo-icon">🍳</span>
-          <h1 className="logo-text" style={{ fontSize: '0.85rem', lineHeight: '1.3' }}>Generative Culinary Intelligence System</h1>
+          <div>
+            <h1 className="logo-text">GCIS</h1>
+            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px', lineHeight: 1.3 }}>Generative Culinary<br/>Intelligence System</p>
+          </div>
         </div>
 
         <nav>
