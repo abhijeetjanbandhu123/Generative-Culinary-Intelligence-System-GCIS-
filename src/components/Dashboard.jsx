@@ -28,13 +28,14 @@ function Dashboard({ pantry, setActiveTab }) {
 
   // Calculate Pantry Health Score
   // Expired items deduct 25 points each, expiring-soon items deduct 10 points. Maximum 100, minimum 0.
-  let healthScore = 100;
-  if (totalUniqueItems > 0) {
-    const deductions = (expiredItems.length * 25) + (expiringSoonItems.length * 10);
-    healthScore = Math.max(0, 100 - deductions);
-  } else {
-    healthScore = 0; // Empty pantry score
-  }
+  let healthScore = 0;
+if (totalUniqueItems > 0) {
+  const freshItems = pantry.filter(item => {
+    const d = calculateDaysLeft(item.expiryDate);
+    return d > 3;
+  }).length;
+  healthScore = Math.round((freshItems / totalUniqueItems) * 100);
+}
 
   // Radial Gauge Calculations
   const radius = 70;
