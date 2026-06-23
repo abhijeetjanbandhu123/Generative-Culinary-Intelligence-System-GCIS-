@@ -2,74 +2,94 @@ import React from 'react';
 import { ShoppingBag, CalendarClock, Skull, HeartPulse, Sparkles, ArrowRight, Camera } from 'lucide-react';
 
 function Dashboard({ pantry, setActiveTab }) {
+  // Helper: calculate days remaining from today
   const calculateDaysLeft = (expiryDateStr) => {
     const today = new Date();
     today.setHours(0,0,0,0);
     const expiry = new Date(expiryDateStr);
     expiry.setHours(0,0,0,0);
-    return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const diffTime = expiry.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Inventory analysis computations
   const totalItems = pantry.reduce((sum, item) => sum + Number(item.quantity), 0);
   const totalUniqueItems = pantry.length;
-
+  
   const expiringSoonItems = pantry.filter(item => {
-    const d = calculateDaysLeft(item.expiryDate);
-    return d >= 0 && d <= 3;
+    const daysLeft = calculateDaysLeft(item.expiryDate);
+    return daysLeft >= 0 && daysLeft <= 3;
   });
 
-  const expiredItems = pantry.filter(item => calculateDaysLeft(item.expiryDate) < 0);
+  const expiredItems = pantry.filter(item => {
+    const daysLeft = calculateDaysLeft(item.expiryDate);
+    return daysLeft < 0;
+  });
 
+  // Calculate Pantry Health Score
+  // Expired items deduct 25 points each, expiring-soon items deduct 10 points. Maximum 100, minimum 0.
   let healthScore = 100;
   if (totalUniqueItems > 0) {
-    healthScore = Math.max(0, 100 - (expiredItems.length * 25) - (expiringSoonItems.length * 10));
+    const deductions = (expiredItems.length * 25) + (expiringSoonItems.length * 10);
+    healthScore = Math.max(0, 100 - deductions);
   } else {
-    healthScore = 0;
+    healthScore = 0; // Empty pantry score
   }
 
+  // Radial Gauge Calculations
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (healthScore / 100) * circumference;
 
+  // Sorting expiring soonest first
   const sortedExpiringList = [...pantry]
     .map(item => ({ ...item, daysLeft: calculateDaysLeft(item.expiryDate) }))
     .sort((a, b) => a.daysLeft - b.daysLeft)
-    .slice(0, 6);
-
-  const healthColor = healthScore >= 80 ? '#6FCF97' : healthScore >= 50 ? '#F2C94C' : '#EB5757';
+    .slice(0, 5); // top 5 soonest to expire
 
   return (
     <div>
       <header className="page-header">
-        <h2 className="page-title">Kitchen Overview</h2>
-        <p className="page-subtitle">Your live pantry status and freshness summary.</p>
+        <h2 className="page-title">Welcome to SmartPantry</h2>
+        <p className="page-subtitle">Here is a summary of your food inventory and kitchen health status.</p>
       </header>
 
-      {/* Stats */}
+      {/* Summary Statistics Grid */}
       <section className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon"><ShoppingBag size={22} /></div>
+        <div className="stat-card glass">
+          <div className="stat-icon">
+            <ShoppingBag size={24} />
+          </div>
           <div className="stat-info">
             <span className="stat-value">{totalItems}</span>
-            <span className="stat-label">Total Ingredients · {totalUniqueItems} types</span>
+            <span className="stat-label">Total Ingredients ({totalUniqueItems} types)</span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon"><CalendarClock size={22} /></div>
+
+        <div className="stat-card glass">
+          <div className="stat-icon">
+            <CalendarClock size={24} />
+          </div>
           <div className="stat-info">
             <span className="stat-value">{expiringSoonItems.length}</span>
-            <span className="stat-label">Expiring within 3 days</span>
+            <span className="stat-label">Expiring in 3 Days</span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon"><Skull size={22} /></div>
+
+        <div className="stat-card glass">
+          <div className="stat-icon">
+            <Skull size={24} />
+          </div>
           <div className="stat-info">
             <span className="stat-value">{expiredItems.length}</span>
             <span className="stat-label">Expired Items</span>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon"><HeartPulse size={22} /></div>
+
+        <div className="stat-card glass">
+          <div className="stat-icon">
+            <HeartPulse size={24} />
+          </div>
           <div className="stat-info">
             <span className="stat-value">{healthScore}%</span>
             <span className="stat-label">Pantry Health Score</span>
@@ -77,15 +97,14 @@ function Dashboard({ pantry, setActiveTab }) {
         </div>
       </section>
 
-      {/* Main Grid */}
+      {/* Main Dashboard Layout */}
       <div className="dashboard-grid">
-
-        {/* Left — Expiry Panel */}
+        {/* Left Panel: Expiration Alerts & Quick Actions */}
         <div className="dashboard-panel glass">
           <div className="panel-header">
-            <h3 className="panel-title">Shelf Tracking & Expiry Alerts</h3>
-            <button className="btn-secondary" onClick={() => setActiveTab('inventory')} style={{ fontSize: '0.82rem', padding: '7px 14px' }}>
-              View All <ArrowRight size={14} />
+            <h3 className="panel-title">Expiry Warnings & Shelf Tracking</h3>
+            <button className="btn-secondary" onClick={() => setActiveTab('inventory')}>
+              View All <ArrowRight size={16} />
             </button>
           </div>
 
@@ -93,54 +112,63 @@ function Dashboard({ pantry, setActiveTab }) {
             {pantry.length === 0 ? (
               <div className="empty-placeholder">
                 <span className="empty-icon">🥗</span>
-                <p>Your pantry is empty. Scan a photo to get started.</p>
+                <p>Your pantry is empty. Use the Visual Scanner to add ingredients!</p>
               </div>
             ) : (
               sortedExpiringList.map(item => {
                 let badgeClass = 'warning';
-                let labelText = `${item.daysLeft}d left`;
-                if (item.daysLeft < 0) { badgeClass = 'critical'; labelText = 'Expired'; }
-                else if (item.daysLeft === 0) { badgeClass = 'critical'; labelText = 'Expires Today'; }
-                else if (item.daysLeft === 1) { badgeClass = 'critical'; labelText = 'Tomorrow'; }
+                let labelText = `${item.daysLeft} days left`;
+                
+                if (item.daysLeft < 0) {
+                  badgeClass = 'critical';
+                  labelText = 'Expired';
+                } else if (item.daysLeft === 0) {
+                  badgeClass = 'critical';
+                  labelText = 'Expires Today';
+                } else if (item.daysLeft === 1) {
+                  badgeClass = 'critical';
+                  labelText = 'Expires Tomorrow';
+                }
 
                 return (
                   <div key={item.id} className="expiring-item">
                     <div className="item-details">
                       <span className="item-name">{item.name}</span>
-                      <span className="item-qty">
-                        {item.quantity} {item.unit}
+                      <span className="item-qty" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span>Qty: {item.quantity} {item.unit}</span>
                         {item.freshnessPrediction && (
-                          <span style={{ color: 'var(--sage)', marginLeft: 6, fontSize: '0.75rem' }}>
-                            · {item.freshnessPrediction}
+                          <span style={{ color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 600 }}>
+                            • 🌱 {item.freshnessPrediction}
                           </span>
                         )}
                       </span>
                     </div>
-                    <span className={`expiry-days-indicator ${badgeClass}`}>{labelText}</span>
+                    <span className={`expiry-days-indicator ${badgeClass}`}>
+                      {labelText}
+                    </span>
                   </div>
                 );
               })
             )}
           </div>
 
-          {/* CTA Banner */}
+          {/* Quick Actions Footer Banner */}
           <div style={{
-            background: 'linear-gradient(135deg, var(--navy), var(--navy-mid))',
-            borderRadius: 'var(--r-md)',
-            padding: '1.25rem 1.5rem',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.1))',
+            borderRadius: '12px',
+            padding: '1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '1rem',
-            marginTop: 'auto',
-            flexWrap: 'wrap'
+            border: '1px solid rgba(59, 130, 246, 0.15)',
+            marginTop: 'auto'
           }}>
             <div>
-              <h4 style={{ fontWeight: 700, color: '#fff', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, fontSize: '0.95rem' }}>
-                <Sparkles size={15} color="var(--amber)" /> Ready to Cook?
+              <h4 style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <Sparkles size={16} color="#8B5CF6" /> Ready to Cook?
               </h4>
-              <p style={{ fontSize: '0.82rem', color: 'rgba(255,255,255,0.55)', lineHeight: 1.5 }}>
-                Generate recipes from ingredients you already have.
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                Let our Recipe Builder suggest custom meals using the ingredients you already have in stock.
               </p>
             </div>
             <button className="btn-primary" onClick={() => setActiveTab('chef')}>
@@ -149,56 +177,49 @@ function Dashboard({ pantry, setActiveTab }) {
           </div>
         </div>
 
-        {/* Right — Gauge */}
-        <div className="health-gauge-card">
-          <h3 className="panel-title">Freshness Score</h3>
-
+        {/* Right Panel: Health Gauge */}
+        <div className="health-gauge-card glass">
+          <h3 className="panel-title">Freshness Level</h3>
           <div className="gauge-container">
-            <svg className="gauge-svg" viewBox="0 0 160 160">
+            <svg className="gauge-svg">
               <defs>
-                <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={healthColor} />
-                  <stop offset="100%" stopColor={healthColor} stopOpacity="0.6" />
+                <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#10B981" />
+                  <stop offset="100%" stopColor="#3B82F6" />
                 </linearGradient>
               </defs>
               <circle className="gauge-bg" cx="80" cy="80" r={radius} />
-              <circle className="gauge-fill" cx="80" cy="80" r={radius} strokeDashoffset={strokeDashoffset} />
+              <circle 
+                className="gauge-fill" 
+                cx="80" 
+                cy="80" 
+                r={radius} 
+                strokeDashoffset={strokeDashoffset} 
+              />
             </svg>
-            <span className="gauge-value">{healthScore}</span>
+            <span className="gauge-value">{healthScore}%</span>
           </div>
 
           <h4 className="health-message">
-            {healthScore >= 80 ? 'Excellent!' : healthScore >= 50 ? 'Looking OK' : healthScore > 0 ? 'Needs Attention' : 'Empty Pantry'}
+            {healthScore >= 80 ? 'Excellent Pantry Health!' : 
+             healthScore >= 50 ? 'Looking Decent!' : 
+             healthScore > 0 ? 'Needs Attention!' : 'Empty Pantry!'}
           </h4>
-          <p className="health-desc" style={{ marginBottom: '1.5rem' }}>
-            {healthScore >= 80 ? 'Your pantry is fresh and well balanced.' :
-             healthScore >= 50 ? 'Some items are approaching expiry. Cook them soon!' :
-             healthScore > 0 ? 'Multiple items expired or expiring. Take action now.' :
-             'Add items by scanning your fridge photo.'}
+          <p className="health-desc">
+            {healthScore >= 80 ? 'Your items are fresh and properly balanced. Minimal food waste predicted!' :
+             healthScore >= 50 ? 'Some ingredients are reaching their expiration limits. Consider cooking them soon!' :
+             healthScore > 0 ? 'Multiple items have expired or are expiring. Scan items and cook to save waste.' :
+             'Scan your food packages or upload a photo of your fridge to calculate your freshness score.'}
           </p>
 
-          <button className="btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setActiveTab('scanner')}>
-            <Camera size={16} /> Scan Photo
+          <button 
+            className="btn-primary" 
+            style={{ marginTop: '1.5rem', width: '100%' }}
+            onClick={() => setActiveTab('scanner')}
+          >
+            <Camera size={18} style={{ marginRight: '8px' }} /> Upload/Scan Photo
           </button>
-
-          {/* Mini legend */}
-          <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '1.25rem', width: '100%' }}>
-            {[
-              { label: 'Fresh items', value: pantry.length - expiringSoonItems.length - expiredItems.length, color: '#6FCF97' },
-              { label: 'Expiring soon', value: expiringSoonItems.length, color: '#F2C94C' },
-              { label: 'Expired', value: expiredItems.length, color: '#EB5757' },
-            ].map(row => (
-              <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: '0.8rem' }}>
-                <span style={{ color: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: row.color, display: 'inline-block' }} />
-                  {row.label}
-                </span>
-                <span style={{ color: row.color, fontWeight: 700 }}>{Math.max(0, row.value)}</span>
-              </div>
-            ))}
-          </div>
         </div>
-
       </div>
     </div>
   );
