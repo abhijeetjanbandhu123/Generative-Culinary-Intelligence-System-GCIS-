@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Camera, ClipboardList, ChefHat, Flame, Trash2 } from 'lucide-react';
+import { LayoutGrid, Camera, ClipboardList, ChefHat, Flame, Trash2, LogOut, User } from 'lucide-react';
 import Dashboard from './components/Dashboard.jsx';
 import Scanner from './components/Scanner.jsx';
 import Inventory from './components/Inventory.jsx';
 import SmartChef from './components/SmartChef.jsx';
+import Auth from './Auth.jsx';   // ← new auth component
 
 // ─── Priority List Page ───────────────────────────────────────────────────────
 function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
@@ -18,14 +19,12 @@ function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
     .filter(item => item.daysLeft >= 0)
     .sort((a, b) => a.daysLeft - b.daysLeft);
 
-  // Low to moderate freshness = 7 days or less
   const urgentItems = priorityList.filter(item => item.daysLeft <= 7);
 
   const getColor = (d) => d <= 1 ? '#ef4444' : d <= 3 ? '#f97316' : d <= 7 ? '#eab308' : '#10b981';
   const getLabel = (d) => d === 0 ? 'Use Today!' : d === 1 ? 'Use Tomorrow' : `${d} days left`;
 
   const handleGenerateFromUrgent = () => {
-    // Pre-select only urgent (low-moderate freshness) items
     const urgentNames = urgentItems.map(item => item.name);
     setPreSelectedIngredients(urgentNames);
     setActiveTab('chef');
@@ -46,8 +45,6 @@ function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
         </div>
       ) : (
         <div className="glass" style={{ padding: '1.8rem' }}>
-
-          {/* Urgency legend */}
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
             {[
               { color: '#ef4444', label: 'Critical (0–1 days)' },
@@ -78,9 +75,7 @@ function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
                     background: color + '22', color,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '0.82rem', fontWeight: 700
-                  }}>
-                    {idx + 1}
-                  </span>
+                  }}>{idx + 1}</span>
                   <div style={{ flexGrow: 1 }}>
                     <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{item.name}</span>
                     {item.freshnessPrediction && (
@@ -89,22 +84,17 @@ function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
                       </span>
                     )}
                   </div>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {item.quantity} {item.unit}
-                  </span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.quantity} {item.unit}</span>
                   <span style={{
                     padding: '4px 12px', borderRadius: '20px',
                     background: color + '22', color,
                     fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap'
-                  }}>
-                    {label}
-                  </span>
+                  }}>{label}</span>
                 </div>
               );
             })}
           </div>
 
-          {/* Button section */}
           <div style={{ marginTop: '1.5rem', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {urgentItems.length > 0 ? (
               <button className="btn-primary" onClick={handleGenerateFromUrgent}>
@@ -178,9 +168,7 @@ function WasteLog({ pantry, setActiveTab }) {
                     </span>
                   )}
                 </div>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  {item.quantity} {item.unit}
-                </span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{item.quantity} {item.unit}</span>
                 <span style={{
                   padding: '4px 12px', borderRadius: '20px',
                   background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444',
@@ -205,6 +193,24 @@ function WasteLog({ pantry, setActiveTab }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function App() {
+  // ── Auth state ──────────────────────────────────────────────────────────────
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('gcis_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
+
+  const handleAuthSuccess = (user) => setCurrentUser(user);
+
+  const handleLogout = () => {
+    if (window.confirm('Sign out of GCIS?')) {
+      localStorage.removeItem('gcis_user');
+      setCurrentUser(null);
+    }
+  };
+
+  // ── App state ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState('dashboard');
   const [apiStatus, setApiStatus] = useState({ checked: false, configured: false });
   const [preSelectedIngredients, setPreSelectedIngredients] = useState([]);
@@ -215,16 +221,14 @@ function App() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error('Failed to parse saved pantry items', e);
-      }
+      } catch (e) { console.error('Failed to parse saved pantry items', e); }
     }
     const today = new Date();
     return [
-      { id: '1', name: 'Whole Milk', quantity: 1, unit: 'bottle', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], freshnessPrediction: 'Fresh (4 days)' },
-      { id: '2', name: 'Fresh Eggs', quantity: 12, unit: 'pieces', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], freshnessPrediction: 'Sealed box (14 days)' },
-      { id: '3', name: 'Broccoli', quantity: 1, unit: 'head', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], freshnessPrediction: 'Slightly yellowing (2 days)' },
-      { id: '4', name: 'Cheddar Cheese', quantity: 200, unit: 'grams', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], freshnessPrediction: 'Firm & sealed (8 days)' }
+      { id: '1', name: 'Whole Milk', quantity: 1, unit: 'bottle', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 4 * 86400000).toISOString().split('T')[0], freshnessPrediction: 'Fresh (4 days)' },
+      { id: '2', name: 'Fresh Eggs', quantity: 12, unit: 'pieces', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 14 * 86400000).toISOString().split('T')[0], freshnessPrediction: 'Sealed box (14 days)' },
+      { id: '3', name: 'Broccoli', quantity: 1, unit: 'head', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 2 * 86400000).toISOString().split('T')[0], freshnessPrediction: 'Slightly yellowing (2 days)' },
+      { id: '4', name: 'Cheddar Cheese', quantity: 200, unit: 'grams', dateAdded: today.toISOString().split('T')[0], expiryDate: new Date(today.getTime() + 8 * 86400000).toISOString().split('T')[0], freshnessPrediction: 'Firm & sealed (8 days)' }
     ];
   });
 
@@ -239,7 +243,6 @@ function App() {
     localStorage.setItem('smart_pantry_items', JSON.stringify(pantry));
   }, [pantry]);
 
-  // Clear pre-selection when user manually navigates away from chef tab
   useEffect(() => {
     if (activeTab !== 'chef') setPreSelectedIngredients([]);
   }, [activeTab]);
@@ -250,7 +253,7 @@ function App() {
       const updated = [...prev];
       newItems.forEach(item => {
         const days = parseInt(item.expiryDays) || 7;
-        const expiryDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const expiryDate = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
         const matchIndex = updated.findIndex(p => p.name.toLowerCase() === item.name.toLowerCase());
         if (matchIndex > -1) {
           updated[matchIndex].quantity = Number(item.quantity);
@@ -271,14 +274,8 @@ function App() {
   };
 
   const deleteItem = (id) => setPantry(prev => prev.filter(item => item.id !== id));
-
-  const clearPantry = () => {
-    if (window.confirm("Are you sure you want to clear all items from your pantry?")) setPantry([]);
-  };
-
-  const updateItem = (id, updatedFields) => {
-    setPantry(prev => prev.map(item => item.id === id ? { ...item, ...updatedFields } : item));
-  };
+  const clearPantry = () => { if (window.confirm("Clear all pantry items?")) setPantry([]); };
+  const updateItem = (id, updatedFields) => setPantry(prev => prev.map(item => item.id === id ? { ...item, ...updatedFields } : item));
 
   const activePantry = pantry.filter(item => item.name && item.name.trim() !== '' && Number(item.quantity) > 0);
 
@@ -300,6 +297,12 @@ function App() {
     return expiry < today;
   }).length;
 
+  // ── Auth gate ────────────────────────────────────────────────────────────────
+  if (!currentUser) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  // ── Main app (authenticated) ─────────────────────────────────────────────────
   return (
     <div className="app-container">
       <aside className="sidebar glass">
@@ -307,66 +310,88 @@ function App() {
           <span className="logo-icon">🍳</span>
           <div>
             <h1 className="logo-text">GCIS</h1>
-            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px', lineHeight: 1.3 }}>Generative Culinary<br/>Intelligence System</p>
+            <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 400, marginTop: '2px', lineHeight: 1.3 }}>
+              Generative Culinary<br />Intelligence System
+            </p>
           </div>
         </div>
 
         <nav>
           <ul className="nav-menu">
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-                <LayoutGrid size={20} /> Dashboard
-              </button>
-            </li>
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'scanner' ? 'active' : ''}`} onClick={() => setActiveTab('scanner')}>
-                <Camera size={20} /> Add Ingredients
-              </button>
-            </li>
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
-                <ClipboardList size={20} /> Pantry Inventory
-              </button>
-            </li>
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'priority' ? 'active' : ''}`} onClick={() => setActiveTab('priority')}>
-                <Flame size={20} /> Priority List
-              </button>
-            </li>
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'waste' ? 'active' : ''}`} onClick={() => setActiveTab('waste')} style={{ position: 'relative' }}>
-                <Trash2 size={20} /> Waste Log
-                {expiredCount > 0 && (
-                  <span style={{
-                    position: 'absolute', right: '12px',
-                    background: '#ef4444', color: '#fff',
-                    borderRadius: '10px', fontSize: '0.7rem',
-                    fontWeight: 700, padding: '1px 7px', minWidth: '18px',
-                    textAlign: 'center'
-                  }}>
-                    {expiredCount}
-                  </span>
-                )}
-              </button>
-            </li>
-            <li className="nav-item">
-              <button className={`nav-btn ${activeTab === 'chef' ? 'active' : ''}`} onClick={() => setActiveTab('chef')}>
-                <ChefHat size={20} /> Recipe Builder
-              </button>
-            </li>
+            {[
+              { key: 'dashboard', icon: <LayoutGrid size={20} />, label: 'Dashboard' },
+              { key: 'scanner', icon: <Camera size={20} />, label: 'Add Ingredients' },
+              { key: 'inventory', icon: <ClipboardList size={20} />, label: 'Pantry Inventory' },
+              { key: 'priority', icon: <Flame size={20} />, label: 'Priority List' },
+              { key: 'waste', icon: <Trash2 size={20} />, label: 'Waste Log', badge: expiredCount },
+              { key: 'chef', icon: <ChefHat size={20} />, label: 'Recipe Builder' },
+            ].map(({ key, icon, label, badge }) => (
+              <li key={key} className="nav-item">
+                <button
+                  className={`nav-btn ${activeTab === key ? 'active' : ''}`}
+                  onClick={() => setActiveTab(key)}
+                  style={{ position: 'relative' }}
+                >
+                  {icon} {label}
+                  {badge > 0 && (
+                    <span style={{
+                      position: 'absolute', right: '12px',
+                      background: '#ef4444', color: '#fff',
+                      borderRadius: '10px', fontSize: '0.7rem',
+                      fontWeight: 700, padding: '1px 7px', minWidth: '18px',
+                      textAlign: 'center'
+                    }}>{badge}</span>
+                  )}
+                </button>
+              </li>
+            ))}
           </ul>
         </nav>
 
         <div className="sidebar-footer">
+          {/* User profile chip */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px 12px', borderRadius: '12px',
+            background: 'rgba(16,124,91,0.05)', border: '1px solid rgba(16,124,91,0.1)',
+            marginBottom: '12px',
+          }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #107C5B, #3C50E0)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0,
+            }}>
+              {currentUser.name ? currentUser.name[0].toUpperCase() : <User size={14} />}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: 600, fontSize: '0.82rem', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUser.name}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentUser.email}
+              </div>
+            </div>
+            <button onClick={handleLogout} title="Sign out" style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-muted)', padding: '4px', borderRadius: '6px',
+              display: 'flex', alignItems: 'center', transition: 'color 0.2s',
+              flexShrink: 0,
+            }}
+              onMouseOver={e => e.currentTarget.style.color = '#ef4444'}
+              onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
+            >
+              <LogOut size={15} />
+            </button>
+          </div>
+
           <div>Service Connection:</div>
           {apiStatus.checked ? (
-            apiStatus.configured ? (
-              <span className="api-badge active">● Cloud API Active</span>
-            ) : (
-              <span className="api-badge mock">▲ Local Database</span>
-            )
+            apiStatus.configured
+              ? <span className="api-badge active">● Cloud API Active</span>
+              : <span className="api-badge mock">▲ Local Database</span>
           ) : (
-            <span className="api-badge mock">Connecting to server...</span>
+            <span className="api-badge mock">Connecting to server…</span>
           )}
           <div style={{ marginTop: '10px', fontSize: '0.75rem', opacity: 0.5 }}>Project Version 1.0.0</div>
         </div>
