@@ -6,17 +6,17 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 dotenv.config();
 
 const app = express();
-// We bumped this payload limit to 10mb because some phone camera uploads are huge and threw 413 errors during our testing.
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 const apiKey = process.env.GEMINI_API_KEY;
+const openRouterKey = process.env.VITE_OPENROUTER_KEY;
+
 let genAI = null;
 if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY_HERE') {
   genAI = new GoogleGenerativeAI(apiKey);
 }
 
-// Helper: wraps any Gemini call with a 25s timeout before Vercel kills it at 30s
 async function withTimeout(promise, ms = 25000) {
   return Promise.race([
     promise,
@@ -24,30 +24,53 @@ async function withTimeout(promise, ms = 25000) {
   ]);
 }
 
-// --------------------------------------------------------------------------
-// ✅ NEW: OpenRouter fallback for image scanning (only used if GEMINI_API_KEY is missing)
-// --------------------------------------------------------------------------
+// OpenRouter vision fallback — tries models in order until one works
 async function scanWithOpenRouter(image, prompt) {
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-model: "nvidia/nemotron-nano-12b-v2-vl:free",
-      messages: [{
-        role: "user",
-        content: [
-          { type: "image_url", image_url: { url: image } },
-          { type: "text", text: prompt }
-        ]
-      }]
-    })
-  });
-  const data = await response.json();
-  if (data.error) throw new Error(data.error.message);
-  return data.choices[0].message.content.trim();
+  const VISION_MODELS = [
+    "nvidia/nemotron-nano-12b-v2-vl:free",
+    "qwen/qwen2.5-vl-72b-instruct:free",
+    "qwen/qwen2.5-vl-32b-instruct:free",
+    "qwen/qwen2.5-vl-7b-instruct:free",
+    "google/gemma-4-31b-it:free",
+  ];
+
+  for (const model of VISION_MODELS) {
+    try {
+      console.log(`Trying vision model: ${model}`);
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${openRouterKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://generative-culinary-intelligence-sy.vercel.app",
+          "X-Title": "SmartPantry"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: image } },
+              { type: "text", text: prompt }
+            ]
+          }],
+          max_tokens: 2048,
+          temperature: 0.3
+        })
+      });
+      const data = await response.json();
+      if (data.error) {
+        console.log(`Model ${model} failed: ${data.error.message}`);
+        continue;
+      }
+      console.log(`Model ${model} succeeded!`);
+      return data.choices[0].message.content.trim();
+    } catch (err) {
+      console.log(`Model ${model} error: ${err.message}`);
+      continue;
+    }
+  }
+  throw new Error("All vision models failed or rate limited. Try again in a minute.");
 }
 
 // --------------------------------------------------------------------------
@@ -82,7 +105,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     apiConfigured: !!genAI,
-    openRouterConfigured: !!process.env.OPENROUTER_API_KEY, // ✅ NEW
+    openRouterConfigured: !!openRouterKey,
     timestamp: new Date()
   });
 });
@@ -90,38 +113,43 @@ app.get('/api/health', (req, res) => {
 app.post('/api/scan', async (req, res) => {
   try {
     const { image } = req.body;
-    
+
     if (!image) {
       return res.status(400).json({ error: 'No image data provided' });
     }
 
-    const prompt = `Analyze the image of this refrigerator, pantry shelf, or collection of food. 
-Identify all food items, ingredients, vegetables, fruits, condiments, or packaged goods.
-For each item, output a JSON array of objects with the exact schema below. 
+    const prompt = `You are an expert food and ingredient recognition AI with high accuracy vision capabilities.
 
-Crucial instructions:
-1. PACKAGED DATES (OCR): Inspect packaging labels closely. If a visible expiry date is printed on the container (e.g. EXP 25/12/2026), read it using OCR, calculate the remaining days from today, and output that number.
-2. VISUAL FRESHNESS PREDICTION: For raw fruits, vegetables, bread, dairy, and other perishables, visually assess their quality (e.g., color, spots, ripeness, bruising) and predict their remaining fresh days.
+Carefully analyze this image and identify EVERY visible food item, ingredient, vegetable, fruit, beverage, condiment, dairy product, packaged good, or any edible item.
 
-Schema keys:
-- "name": String (Capitalized, e.g. "Green Apple", "Whole Milk", "Tomato")
-- "quantity": Number (The count or quantity seen, default to 1 if unclear)
-- "unit": String (e.g. "pieces", "bottle", "grams", "can", "box", "pack")
-- "expiryDays": Number (Remaining days until expired or spoiled, based on package date or visual state)
-- "freshnessPrediction": String (Brief description of its visual state and estimated freshness)
+For EACH item you detect:
+1. Look at colors, shapes, textures, labels, and packaging carefully
+2. Count exact quantities visible
+3. Assess freshness from visual cues (color, texture, ripeness, any spoilage signs)
+4. If a printed expiry date is visible on packaging, read it and calculate days remaining from today
+5. Estimate shelf life in days based on visual condition
 
-Provide ONLY the raw JSON array. Do not include markdown code block formatting or any additional text.`;
+Return a JSON array where each object follows this EXACT schema:
+- "name": String — specific capitalized name (e.g. "Red Bell Pepper", "Whole Milk Bottle", "Brown Eggs", "Cheddar Cheese Block")
+- "quantity": Number — exact count visible in image (default 1 if unclear)
+- "unit": String — appropriate unit ("pieces", "bottle", "grams", "can", "box", "pack", "head", "bunch", "carton", "jar")
+- "expiryDays": Number — realistic days until expiry based on visual freshness
+- "freshnessPrediction": String — concise visual freshness assessment (e.g. "Firm & crisp (7 days)", "Ripe yellow skin (3 days)", "Sealed unopened pack (14 days)")
+
+Be thorough — identify every single food item visible. Do not skip anything.
+Return ONLY the raw JSON array. No markdown fences, no explanations, no extra text.`;
 
     let text;
 
-    // ✅ CHANGED: Try Gemini first, fall back to OpenRouter if key is missing
     if (genAI) {
+      // Gemini path
       const imagePart = fileToGenerativePart(image);
       const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
       const result = await withTimeout(model.generateContent([prompt, imagePart]));
       const response = await result.response;
       text = response.text().trim();
-    } else if (process.env.OPENROUTER_API_KEY) {
+    } else if (openRouterKey) {
+      // OpenRouter fallback
       text = await withTimeout(scanWithOpenRouter(image, prompt));
     } else {
       return res.json({ items: MOCK_DETECTION, note: 'Offline sandbox mode' });
@@ -130,14 +158,14 @@ Provide ONLY the raw JSON array. Do not include markdown code block formatting o
     if (text.startsWith('```')) {
       text = text.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
     }
-    
+
     const items = JSON.parse(text);
     res.json({ items, note: 'Success' });
-    
+
   } catch (error) {
     console.error('Error analyzing image:', error);
-    res.status(500).json({ 
-      error: 'Failed to analyze image', 
+    res.status(500).json({
+      error: 'Failed to analyze image',
       details: error.message,
       items: MOCK_DETECTION,
       note: 'Sandbox fallback'
@@ -148,7 +176,7 @@ Provide ONLY the raw JSON array. Do not include markdown code block formatting o
 app.post('/api/scan-text', async (req, res) => {
   try {
     const { description } = req.body;
-    
+
     if (!description || typeof description !== 'string' || !description.trim()) {
       return res.status(400).json({ error: 'No description text provided' });
     }
@@ -169,7 +197,7 @@ app.post('/api/scan-text', async (req, res) => {
     }
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
+
     const prompt = `Analyze the following description of ingredients written by a user in their kitchen: "${description}".
 Extract all food items, ingredients, vegetables, fruits, dairy, or pantry goods.
 For each item, output a JSON array of objects with the exact schema below.
@@ -186,18 +214,18 @@ Provide ONLY the raw JSON array. Do not include markdown code block formatting o
     const result = await withTimeout(model.generateContent(prompt));
     const response = await result.response;
     let text = response.text().trim();
-    
+
     if (text.startsWith('```')) {
       text = text.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
     }
-    
+
     const items = JSON.parse(text);
     res.json({ items, note: 'Success' });
-    
+
   } catch (error) {
     console.error('Error analyzing description text:', error);
-    res.status(500).json({ 
-      error: 'Failed to analyze text description', 
+    res.status(500).json({
+      error: 'Failed to analyze text description',
       details: error.message,
       items: [{ name: 'Pantry Item', quantity: 1, unit: 'pieces', expiryDays: 7, freshnessPrediction: 'Text Sandbox fallback' }],
       note: 'Sandbox fallback'
@@ -207,16 +235,16 @@ Provide ONLY the raw JSON array. Do not include markdown code block formatting o
 
 function isLiquidOrPowder(name) {
   const lowercase = name.toLowerCase();
-  return lowercase.includes('milk') || lowercase.includes('honey') || lowercase.includes('water') || 
-         lowercase.includes('oil') || lowercase.includes('sugar') || lowercase.includes('flour') || 
-         lowercase.includes('juice') || lowercase.includes('sauce') || lowercase.includes('salt') || 
-         lowercase.includes('pepper') || lowercase.includes('butter');
+  return lowercase.includes('milk') || lowercase.includes('honey') || lowercase.includes('water') ||
+    lowercase.includes('oil') || lowercase.includes('sugar') || lowercase.includes('flour') ||
+    lowercase.includes('juice') || lowercase.includes('sauce') || lowercase.includes('salt') ||
+    lowercase.includes('pepper') || lowercase.includes('butter');
 }
 
 function generateMockRecipes(ingredients) {
   const selected = ingredients.map(i => i.toLowerCase());
   const recipes = [];
-  
+
   if (selected.some(i => i.includes('egg'))) {
     const eggItem = ingredients.find(i => i.toLowerCase().includes('egg'));
     const used = [eggItem];
@@ -275,7 +303,7 @@ function generateMockRecipes(ingredients) {
 app.post('/api/recipes', async (req, res) => {
   try {
     const { ingredients } = req.body;
-    
+
     if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
       return res.status(400).json({ error: 'No ingredients provided' });
     }
@@ -284,9 +312,8 @@ app.post('/api/recipes', async (req, res) => {
       return res.json({ recipes: generateMockRecipes(ingredients), note: 'Offline sandbox mode' });
     }
 
-    // Using gemini-2.0-flash — faster and more reliable on free tier than 1.5-flash
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    
+
     const prompt = `You are a creative AI Chef. 
 Here is a list of ingredients currently in the user's kitchen: ${JSON.stringify(ingredients)}.
 
@@ -310,19 +337,19 @@ Provide ONLY the raw JSON array. No markdown, no extra text.`;
     const result = await withTimeout(model.generateContent(prompt));
     const response = await result.response;
     let text = response.text().trim();
-    
+
     if (text.startsWith('```')) {
       text = text.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
     }
-    
+
     let recipes = JSON.parse(text);
-    
+
     if (Array.isArray(recipes)) {
       recipes = recipes.map(recipe => {
         const verifiedUsed = [];
         const verifiedMissing = recipe.missingIngredients ? [...recipe.missingIngredients] : [];
         const rawUsed = recipe.usedIngredients || [];
-        
+
         rawUsed.forEach(item => {
           const itemLower = item.toLowerCase().trim();
           const match = ingredients.find(input => {
@@ -339,17 +366,17 @@ Provide ONLY the raw JSON array. No markdown, no extra text.`;
             }
           }
         });
-        
+
         return { ...recipe, usedIngredients: verifiedUsed, missingIngredients: verifiedMissing };
       });
     }
 
     res.json({ recipes, note: 'Success' });
-    
+
   } catch (error) {
     console.error('Error generating recipes:', error);
-    res.status(500).json({ 
-      error: 'Failed to generate recipes', 
+    res.status(500).json({
+      error: 'Failed to generate recipes',
       details: error.message,
       recipes: generateMockRecipes(req.body.ingredients || []),
       note: 'Sandbox fallback'
