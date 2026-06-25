@@ -318,37 +318,68 @@ function App() {
           </div>
         </div>
 
-        <nav>
-          <ul className="nav-menu">
-            {[
-              { key: 'dashboard', icon: <LayoutGrid size={20} />, label: 'Dashboard' },
-              { key: 'scanner', icon: <Camera size={20} />, label: 'Add Ingredients' },
-              { key: 'recipesearch', icon: <Search size={20} />, label: 'Recipe section' },
-              { key: 'inventory', icon: <ClipboardList size={20} />, label: 'Pantry Inventory' },
-              { key: 'priority', icon: <Flame size={20} />, label: 'Priority List' },
-              { key: 'waste', icon: <Trash2 size={20} />, label: 'Waste Log', badge: expiredCount },
-              { key: 'chef', icon: <ChefHat size={20} />, label: 'Recipe Builder' },
-            ].map(({ key, icon, label, badge }) => (
-              <li key={key} className="nav-item">
-                <button
-                  className={`nav-btn ${activeTab === key ? 'active' : ''}`}
-                  onClick={() => setActiveTab(key)}
-                  style={{ position: 'relative' }}
-                >
-                  {icon} {label}
-                  {badge > 0 && (
-                    <span style={{
-                      position: 'absolute', right: '12px',
-                      background: '#ef4444', color: '#fff',
-                      borderRadius: '10px', fontSize: '0.7rem',
-                      fontWeight: 700, padding: '1px 7px', minWidth: '18px',
-                      textAlign: 'center'
-                    }}>{badge}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {[
+            {
+              title: 'Pantry Management',
+              items: [
+                { key: 'dashboard', icon: <LayoutGrid size={20} />, label: 'Dashboard' },
+                { key: 'scanner', icon: <Camera size={20} />, label: 'Add Ingredients' },
+                { key: 'inventory', icon: <ClipboardList size={20} />, label: 'Pantry Inventory' },
+              ]
+            },
+            {
+              title: 'Freshness & Tracking',
+              items: [
+                { key: 'priority', icon: <Flame size={20} />, label: 'Priority List' },
+                { key: 'waste', icon: <Trash2 size={20} />, label: 'Waste Log', badge: expiredCount },
+              ]
+            },
+            {
+              title: 'AI Recipe Kitchen',
+              items: [
+                { key: 'recipesearch', icon: <Search size={20} />, label: 'Recipe section' },
+                { key: 'chef', icon: <ChefHat size={20} />, label: 'Recipe Builder' },
+              ]
+            }
+          ].map(section => (
+            <div key={section.title} className="nav-section">
+              <div className="nav-section-title" style={{
+                fontSize: '0.72rem',
+                textTransform: 'uppercase',
+                color: 'var(--text-muted)',
+                fontWeight: 700,
+                letterSpacing: '1px',
+                paddingLeft: '14px',
+                marginBottom: '8px',
+                opacity: 0.85
+              }}>
+                {section.title}
+              </div>
+              <ul className="nav-menu" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {section.items.map(({ key, icon, label, badge }) => (
+                  <li key={key} className="nav-item">
+                    <button
+                      className={`nav-btn ${activeTab === key ? 'active' : ''}`}
+                      onClick={() => setActiveTab(key)}
+                      style={{ position: 'relative' }}
+                    >
+                      {icon} {label}
+                      {badge > 0 && (
+                        <span style={{
+                          position: 'absolute', right: '12px',
+                          background: '#ef4444', color: '#fff',
+                          borderRadius: '10px', fontSize: '0.7rem',
+                          fontWeight: 700, padding: '1px 7px', minWidth: '18px',
+                          textAlign: 'center'
+                        }}>{badge}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="sidebar-footer">
