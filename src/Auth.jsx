@@ -243,7 +243,7 @@ export default function Auth({ onAuthSuccess }) {
                     background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem',
                     color: '#475569', padding: '4px',
                   }}>
-                    {showPass ? '🙈' : '👁️'}
+                    {showPass ? '🛡️' : '👁️'}
                   </button>
                 </div>
                 {/* Password strength bar */}
