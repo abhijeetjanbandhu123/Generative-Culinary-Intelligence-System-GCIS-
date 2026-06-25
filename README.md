@@ -1,69 +1,34 @@
-# SmartPantry: Visual Food Tracker & Recipe Suggester
+# 🍳 GCIS: Generative Culinary Intelligence System
 
-SmartPantry is our final-year college project. We built it to solve a problem we deal with every single week: household food waste. It is a full-stack web app that catalogs what is in your fridge using image recognition, tracks expiry dates, and suggests meals using only the ingredients you have on hand.
+*(Formerly known as SmartPantry)*
 
----
+Hey there! 👋 Welcome to my project. 
 
-## 🛠️ The Tech Stack (and why we chose it)
+I built GCIS because I realized I was throwing away way too much expired food every week just because I lost track of what was sitting in the back of my fridge. I wanted to build a full-stack web app that not only acts as a digital inventory for your kitchen, but actively helps you use up your ingredients by intelligently suggesting recipes.
 
-- **Frontend**: React (SPA) + Vite. We went with Vite because it is much faster than Create React App and doesn't clutter our project.
-- **Styling**: Vanilla CSS. We actually avoided Tailwind CSS here because we wanted full control over the glassmorphic blur effects and custom radial gauges without fighting a utility framework.
-- **Backend**: Node.js & Express. Initially we thought about Python for OCR and vision, but running two separate servers made monorepo deployment on Vercel a nightmare. Consolidating everything under Node using the official Google SDK kept things incredibly clean.
-- **AI Integrations**: Google Gemini API (`gemini-1.5-flash`). It handles both image parsing and text extraction in one model, which saved us from writing custom OCR code.
-- **Hosting**: Unified Vercel serverless deployment.
+## 🛠️ The Tech Stack (and why I chose it)
 
----
+- **Frontend**: React (SPA) + Vite. I went with Vite because it's blazing fast compared to traditional bundlers and keeps the development environment snappy.
+- **Styling**: Pure CSS! I purposely avoided Tailwind CSS or Bootstrap here because I really wanted to challenge myself to build a premium, glassmorphic UI system entirely from scratch using modern CSS variables. 
+- **Backend**: Node.js & Express. I chose Node to keep the entire stack in JavaScript, allowing for a seamless serverless deployment on Vercel.
+- **Computer Vision**: Google Gemini API (`gemini-1.5-flash`). I integrated Gemini to handle the image parsing so you can literally just upload a photo of your fridge, and the vision model will extract the ingredients and estimate their shelf life without needing complex local OCR pipelines.
+- **Recipe Engine**: A hybrid culinary engine using **TheMealDB** as a highly stable, limitless primary source, with an **OpenRouter Generative AI** fallback to creatively invent recipes when standard ones aren't found.
 
-## 🚀 Key Features & Design Choices
+## 🚀 Key Features
 
-1. **Visual Scanner (with Backup)**: You can upload a photo of your fridge or take a snapshot with your webcam. We realized mid-way that local webcam streams can be finicky on some browsers due to HTTPS permissions, so adding the drag-and-drop file upload was a lifesaver.
-2. **Pantry Health Score**: A simple radial gauge that rates how fresh your kitchen is. Expired items deduct roughly 25 points and expiring items deduct 10. We chose a simple mathematical deduction rather than a heavy database weight algorithm to keep loading speeds snappy.
-3. **Hallucination-Proof Recipe Builder**: You check off what you want to cook. During our testing, the AI model frequently recommended dishes containing ingredients we didn't have (like cheese or broccoli). To prevent this, we wrote a custom backend filter that forces the AI's suggestions to conform strictly to the user's checklist.
-4. **Offline Sandbox Mode**: If your API key is missing or the free-tier quota is throttled, the server automatically defaults to simulated recognition and mock recipes. This guarantees the app won't crash during a live presentation.
+1. **Visual Pantry Scanner**: You can upload a photo of your fridge or take a snapshot with your webcam. The vision model automatically detects food items, categorizes them, and logs them into your digital inventory.
+2. **Kitchen Health Score**: A custom, mathematically-driven radial gauge that gives your kitchen a real-time "Freshness Score." Expired items hurt your score, encouraging you to consume responsibly and save money.
+3. **Hallucination-Proof Recipe Generation**: You check off what you want to cook, and the system cross-references your inventory to build a recipe. If the AI suggests ingredients you don't actually have, my custom backend filter catches it and explicitly flags them as "Missing Ingredients."
+4. **Waste Log Tracking**: Automatically tracks items that expire, helping you visualize where you are losing money on spoiled food.
 
----
+## 💻 Running it Locally
 
-## 💻 Running the App Locally
+If you want to spin this up on your own machine:
 
-### Prerequisites
-You need **Node.js** (version 18+). You can grab it from [nodejs.org](https://nodejs.org/).
-
-### Step 1: Open project in VS Code
-Open VS Code, click `File > Open Folder`, and select the `smart-pantry` directory.
-
-### Step 2: Install packages
-Open your terminal in VS Code (`Ctrl + ~`) and run:
-```bash
-npm install
-```
-
-### Step 3: Configure your API Key
-1. Open the `.env` file in the root folder.
-2. Replace `YOUR_GEMINI_API_KEY_HERE` with your actual key from [Google AI Studio](https://aistudio.google.com/).
-3. Save the file. (If you don't have a key, it's fine—the app will run in local database sandbox mode instead).
-
-### Step 4: Launch Dev Server
-In the terminal, run:
-```bash
-npm run dev
-```
-Vite runs the frontend on port `5173`, and Express runs the backend on port `3000` concurrently. Open your browser and head to:
-👉 **`http://localhost:5173`**
+1. Clone the repo: `git clone https://github.com/abhijeetjanbandhu123/Generative-Culinary-Intelligence-System-GCIS-.git`
+2. Install the dependencies: `npm install`
+3. Create a `.env` file in the root folder and drop your API Keys in (`GEMINI_API_KEY` and optionally `OPENROUTER_API_KEY`).
+4. Start the dev server: `npm run dev`
 
 ---
-
-## 🎓 College Viva / Project Q&A Guide
-
-Here is roughly how to explain the code when the examiner asks questions:
-
-### 1. How does the monorepo work on Vercel?
-"Instead of running a separate frontend host and backend API, we structured this as a monorepo. The React frontend is under the `src` folder, and the Express endpoints live in the `api` folder. We configured `vercel.json` to proxy `/api/*` requests to the Express serverless functions. This lets us deploy the entire codebase in one git push."
-
-### 2. How did you handle webcam acquisition?
-"We used the native HTML5 `navigator.mediaDevices.getUserMedia` API to stream video to a `<video>` element. When the user snaps a picture, we draw that video frame to an offscreen canvas, export it as a base64 Data URL, and post it to our `/api/scan` route."
-
-### 3. How do you prevent API key leaks?
-"We never call the Gemini API directly from the browser. The frontend only talks to our Express server. The server reads the API key securely from server-side environment variables (`process.env.GEMINI_API_KEY`) and communicates with Google. This prevents users from inspecting our frontend build and stealing our keys."
-
-### 4. What happens when the AI returns ingredients we don't have?
-"We noticed this bug early on. To solve it, we built a post-processing filter on the backend inside the `/api/recipes` route. Before sending the recipes to the user, the server iterates through `usedIngredients` and double-checks them against the request payload. If a returned ingredient isn't on the list, it's immediately shifted to `missingIngredients`."
+*Built with ❤️ to make kitchens smarter and cooking easier.*
