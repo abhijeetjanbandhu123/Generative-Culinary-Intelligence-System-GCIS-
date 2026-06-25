@@ -1,40 +1,7 @@
 import React, { useState } from 'react';
 import { ChefHat, Clock, Gauge, Utensils, AlertTriangle, Sparkles, CheckSquare, Square, Plus, Flame } from 'lucide-react';
 
-const OR_KEY = import.meta.env.VITE_OPENROUTER_KEY;
 const PAGE_SIZE = 2;
-
-async function callAI(prompt) {
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OR_KEY}`,
-      'HTTP-Referer': 'https://generative-culinary-intelligence-sy.vercel.app',
-      'X-Title': 'SmartPantry'
-    },
-    body: JSON.stringify({
-      model: 'openrouter/free',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 4096,
-      temperature: 0.7
-    })
-  });
-
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err?.error?.message || 'AI API error');
-  }
-
-  const data = await res.json();
-  let text = data?.choices?.[0]?.message?.content?.trim() || '';
-
-  if (text.startsWith('```')) {
-    text = text.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-  }
-
-  return JSON.parse(text);
-}
 
 function generateMockRecipes(ingredients) {
   const selected = ingredients.map(i => i.toLowerCase());
@@ -134,7 +101,7 @@ function RecipeCard({ recipe }) {
       <div className="ingredients-used">
         <div className="section-label">Used From Pantry</div>
         <div className="ingredient-tags">
-          {recipe.usedIngredients.map((item, i) => (
+          {recipe.usedIngredients && recipe.usedIngredients.map((item, i) => (
             <span key={i} className="tag" style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '8px' }}>
               {item}
             </span>
@@ -158,7 +125,7 @@ function RecipeCard({ recipe }) {
       <div style={{ marginTop: '1.25rem' }}>
         <div className="section-label">Cooking Instructions</div>
         <ol className="steps-list">
-          {recipe.steps.map((step, i) => (
+          {recipe.steps && recipe.steps.map((step, i) => (
             <li key={i}>{step}</li>
           ))}
         </ol>
@@ -197,35 +164,22 @@ function SmartChef({ pantry, preSelectedIngredients = [] }) {
     setRecipes([]);
     setVisibleCount(PAGE_SIZE);
 
-    // Ask for 6 recipes upfront so load more doesn't need another API call
-    const prompt = `You are a creative AI Chef.
-Here is a list of ingredients currently in the user's kitchen: ${JSON.stringify(selectedIngredients)}.
-
-Generate exactly 6 delicious and varied recipes using these ingredients.
-Assume basic staples like salt, pepper, oil, water, sugar are available.
-Make sure all 6 recipes are meaningfully different from each other.
-
-CRITICAL: 'usedIngredients' must ONLY contain items from: ${JSON.stringify(selectedIngredients)}.
-Any other ingredient needed must go under 'missingIngredients'.
-
-Return a JSON array of exactly 6 objects with this exact schema:
-- "name": String
-- "prepTime": String (e.g. "15 mins")
-- "difficulty": String ("Easy", "Medium", or "Hard")
-- "usedIngredients": Array of Strings (only from the user's list)
-- "missingIngredients": Array of Strings (ingredients NOT in the user's list)
-- "steps": Array of Strings
-
-Return ONLY the raw JSON array. No markdown, no extra text.`;
-
     try {
-      if (!OR_KEY) {
-        setRecipes(generateMockRecipes(selectedIngredients));
-        return;
-      }
+      const response = await fetch('/api/recipes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients: selectedIngredients })
+      });
 
-      const result = await callAI(prompt);
-      setRecipes(result);
+      const data = await response.json();
+      if (data.recipes) {
+        setRecipes(data.recipes);
+        if (!response.ok) {
+          setErrorMsg(data.details || data.error || 'Offline fallback active');
+        }
+      } else {
+        throw new Error(data.details || data.error || 'Failed to generate recipes');
+      }
     } catch (err) {
       console.error('Recipe generation error:', err);
       const fallback = generateMockRecipes(selectedIngredients);
@@ -242,48 +196,18 @@ Return ONLY the raw JSON array. No markdown, no extra text.`;
   const handleLoadMore = async () => {
     const nextCount = visibleCount + PAGE_SIZE;
 
-    // If we already have enough recipes loaded, just show more
+    // If we already have enough recipes pre-loaded in memory, just show more
     if (nextCount <= recipes.length) {
       setVisibleCount(nextCount);
       return;
     }
 
-    // Otherwise fetch more from AI
-    setLoadingMore(true);
-    const prompt = `You are a creative AI Chef.
-Here is a list of ingredients: ${JSON.stringify(selectedIngredients)}.
-
-Generate 2 more NEW and creative recipes using these ingredients that are different from typical suggestions.
-Assume basic staples like salt, pepper, oil, water, sugar are available.
-
-CRITICAL: 'usedIngredients' must ONLY contain items from: ${JSON.stringify(selectedIngredients)}.
-Any other ingredient must go under 'missingIngredients'.
-
-Return a JSON array of exactly 2 objects with this schema:
-- "name": String
-- "prepTime": String
-- "difficulty": String ("Easy", "Medium", or "Hard")
-- "usedIngredients": Array of Strings
-- "missingIngredients": Array of Strings
-- "steps": Array of Strings
-
-Return ONLY the raw JSON array. No markdown, no extra text.`;
-
-    try {
-      const moreRecipes = await callAI(prompt);
-      setRecipes(prev => [...prev, ...moreRecipes]);
-      setVisibleCount(prev => prev + PAGE_SIZE);
-    } catch (err) {
-      console.error('Load more error:', err);
-      // Just show what we have
-      setVisibleCount(prev => Math.min(prev + PAGE_SIZE, recipes.length));
-    } finally {
-      setLoadingMore(false);
-    }
+    // Otherwise, since backend loaded 4-6 recipes, just cap it to recipes.length
+    setVisibleCount(recipes.length);
   };
 
   const visibleRecipes = recipes.slice(0, visibleCount);
-  const hasMore = visibleCount < recipes.length || recipes.length >= visibleCount;
+  const hasMore = visibleCount < recipes.length;
 
   return (
     <div>

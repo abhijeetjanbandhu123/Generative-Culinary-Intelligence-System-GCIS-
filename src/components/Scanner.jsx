@@ -13,6 +13,7 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
   const [scanResult, setScanResult] = useState([]); // review items list
   const [cameraActive, setCameraActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [hiddenModel, setHiddenModel] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -23,6 +24,43 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
       stopCamera();
     };
   }, []);
+
+  // Silently load TF model for offline fallback accuracy
+  useEffect(() => {
+    const loadSilentModel = async () => {
+      try {
+        if (window.cocoSsd) {
+          const loadedModel = await window.cocoSsd.load();
+          setHiddenModel(loadedModel);
+        }
+      } catch (e) {
+        console.warn('Silent model load failed', e);
+      }
+    };
+    loadSilentModel();
+  }, []);
+
+  const getHiddenDetections = async (imageSrc) => {
+    if (!hiddenModel) return null;
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = imageSrc;
+      img.onload = async () => {
+        try {
+          const predictions = await hiddenModel.detect(img);
+          if (predictions && predictions.length > 0) {
+            resolve(predictions.map(p => p.class).join(', '));
+          } else {
+            resolve(null);
+          }
+        } catch (e) {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+    });
+  };
 
   // Web camera activation
   const startCamera = async () => {
@@ -57,7 +95,7 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
   };
 
   // Capture frame from active camera stream
-  const handleCapture = () => {
+  const handleCapture = async () => {
     if (!videoRef.current) return;
 
     const canvas = document.createElement('canvas');
@@ -73,7 +111,9 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
     const dataUrl = canvas.toDataURL('image/jpeg');
     setCapturedImage(dataUrl);
     stopCamera();
-    sendToBackend(dataUrl);
+    setLoading(true);
+    const hiddenPredictions = await getHiddenDetections(dataUrl);
+    sendToBackend(dataUrl, hiddenPredictions);
   };
 
   // Image Upload handler
@@ -83,22 +123,24 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       setCapturedImage(reader.result);
-      sendToBackend(reader.result);
+      setLoading(true);
+      const hiddenPredictions = await getHiddenDetections(reader.result);
+      sendToBackend(reader.result, hiddenPredictions);
     };
     reader.readAsDataURL(file);
   };
 
   // Send image file to server api
-  const sendToBackend = async (base64Image) => {
+  const sendToBackend = async (base64Image, hiddenFileName = null) => {
     setLoading(true);
     setScanResult([]);
     try {
       const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64Image })
+        body: JSON.stringify({ image: base64Image, fileName: hiddenFileName })
       });
 
       const data = await response.json();

@@ -184,11 +184,10 @@ function RecipeSearch({ apiConfigured }) {
                       </div>
                     </div>
 
-                    {/* Steps Section */}
                     <div style={{ marginTop: '1.25rem' }}>
                       <div className="section-label" style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '6px' }}>Cooking Instructions</div>
                       <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {recipe.steps.map((step, i) => (
+                        {recipe.steps && recipe.steps.map((step, i) => (
                           <li key={i} style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.4 }}>{step}</li>
                         ))}
                       </ol>
