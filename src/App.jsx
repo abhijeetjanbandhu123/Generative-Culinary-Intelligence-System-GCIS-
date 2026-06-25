@@ -6,6 +6,7 @@ import Inventory from './components/Inventory.jsx';
 import SmartChef from './components/SmartChef.jsx';
 import RecipeSearch from './components/RecipeSearch.jsx';
 import Auth from './Auth.jsx';   // ← new auth component
+import logoImg from './assets/logo.png';
 
 // ─── Priority List Page ───────────────────────────────────────────────────────
 function PriorityList({ pantry, setActiveTab, setPreSelectedIngredients }) {
@@ -309,7 +310,7 @@ function App() {
     <div className="app-container">
       <aside className="sidebar glass">
         <div className="logo-container" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '14px', marginBottom: '2.5rem', padding: '0 4px' }}>
-          <img src="/src/assets/logo.png" alt="GCIS Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', background: '#FFFFFF', borderRadius: '16px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: '0 8px 20px rgba(16,124,91,0.12)' }} />
+          <img src={logoImg} alt="GCIS Logo" style={{ width: '64px', height: '64px', objectFit: 'contain', background: '#FFFFFF', borderRadius: '16px', border: '1px solid rgba(15, 23, 42, 0.05)', boxShadow: '0 8px 20px rgba(16,124,91,0.12)' }} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <h1 className="logo-text" style={{ fontSize: '1.6rem', margin: 0, fontWeight: 800, letterSpacing: '-0.5px', color: '#1E293B' }}>GCIS</h1>
             <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1.2 }}>
