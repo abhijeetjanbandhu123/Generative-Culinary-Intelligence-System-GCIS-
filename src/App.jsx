@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutGrid, Camera, ClipboardList, ChefHat, Flame, Trash2, LogOut, User } from 'lucide-react';
+import { LayoutGrid, Camera, ClipboardList, ChefHat, Flame, Trash2, LogOut, User, Search } from 'lucide-react';
 import Dashboard from './components/Dashboard.jsx';
 import Scanner from './components/Scanner.jsx';
 import Inventory from './components/Inventory.jsx';
 import SmartChef from './components/SmartChef.jsx';
+import RecipeSearch from './components/RecipeSearch.jsx';
 import Auth from './Auth.jsx';   // ← new auth component
 
 // ─── Priority List Page ───────────────────────────────────────────────────────
@@ -283,6 +284,7 @@ function App() {
     switch (activeTab) {
       case 'dashboard': return <Dashboard pantry={activePantry} setActiveTab={setActiveTab} />;
       case 'scanner': return <Scanner addItemsToPantry={addItemsToPantry} setActiveTab={setActiveTab} apiConfigured={apiStatus.configured} />;
+      case 'recipesearch': return <RecipeSearch apiConfigured={apiStatus.configured} />;
       case 'inventory': return <Inventory pantry={activePantry} deleteItem={deleteItem} clearPantry={clearPantry} updateItem={updateItem} addItems={addItemsToPantry} />;
       case 'chef': return <SmartChef pantry={activePantry} preSelectedIngredients={preSelectedIngredients} />;
       case 'priority': return <PriorityList pantry={activePantry} setActiveTab={setActiveTab} setPreSelectedIngredients={setPreSelectedIngredients} />;
@@ -321,6 +323,7 @@ function App() {
             {[
               { key: 'dashboard', icon: <LayoutGrid size={20} />, label: 'Dashboard' },
               { key: 'scanner', icon: <Camera size={20} />, label: 'Add Ingredients' },
+              { key: 'recipesearch', icon: <Search size={20} />, label: 'Recipe section' },
               { key: 'inventory', icon: <ClipboardList size={20} />, label: 'Pantry Inventory' },
               { key: 'priority', icon: <Flame size={20} />, label: 'Priority List' },
               { key: 'waste', icon: <Trash2 size={20} />, label: 'Waste Log', badge: expiredCount },

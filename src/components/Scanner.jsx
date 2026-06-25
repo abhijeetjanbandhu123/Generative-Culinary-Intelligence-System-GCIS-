@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, AlertCircle, Plus, Trash, Check, VideoOff, RotateCw, Clock, Gauge, Utensils, Sparkles } from 'lucide-react';
+import { Camera, Upload, AlertCircle, Plus, Trash, Check, VideoOff, RotateCw } from 'lucide-react';
 
 function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
   const [capturedImage, setCapturedImage] = useState(null); // base64 string
-  const [inputMode, setInputMode] = useState('visual'); // 'visual', 'form', or 'recipeSearch'
+  const [inputMode, setInputMode] = useState('form'); // default to 'form'
   const [formName, setFormName] = useState('');
   const [formQuantity, setFormQuantity] = useState('1');
   const [formUnit, setFormUnit] = useState('pieces');
@@ -13,11 +13,6 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
   const [scanResult, setScanResult] = useState([]); // review items list
   const [cameraActive, setCameraActive] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-
-  // Recipe Search states
-  const [recipeQuery, setRecipeQuery] = useState('');
-  const [recipes, setRecipes] = useState([]);
-  const [searchingRecipes, setSearchingRecipes] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -218,38 +213,7 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
     setActiveTab('dashboard');
   };
 
-  // Handle recipe search using description or name
-  const handleRecipeSearchSubmit = async (e) => {
-    e.preventDefault();
-    if (!recipeQuery.trim()) return;
 
-    setSearchingRecipes(true);
-    setErrorMsg('');
-    setRecipes([]);
-
-    try {
-      const response = await fetch('/api/search-recipes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: recipeQuery.trim() })
-      });
-
-      const data = await response.json();
-      if (data.recipes) {
-        setRecipes(data.recipes);
-        if (!response.ok) {
-          setErrorMsg(data.details || data.error || 'Offline fallback active');
-        }
-      } else {
-        throw new Error(data.details || data.error || 'Failed to search recipes');
-      }
-    } catch (err) {
-      console.error('Error searching recipes:', err);
-      setErrorMsg(err.message || 'Could not find recipes. Check your connection or API configurations.');
-    } finally {
-      setSearchingRecipes(false);
-    }
-  };
 
   // Start fresh
   const handleReset = () => {
@@ -261,9 +225,6 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
     setFormUnit('pieces');
     setFormCondition('perfect');
     setFormCustomDays('7');
-    setRecipeQuery('');
-    setRecipes([]);
-    setSearchingRecipes(false);
     stopCamera();
   };
 
@@ -314,9 +275,8 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
           {!capturedImage && (
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', gap: '1.5rem', marginBottom: '4px' }}>
               {[
-                { id: 'visual', label: 'Camera / Upload' },
                 { id: 'form', label: 'Details Form' },
-                { id: 'recipeSearch', label: 'Recipe Search' }
+                { id: 'visual', label: 'Camera / Upload' }
               ].map(tab => (
                 <button 
                   key={tab.id}
@@ -342,50 +302,7 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
           )}
           
           {!capturedImage ? (
-            inputMode === 'visual' ? (
-              <div>
-                {cameraActive ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div className="scanner-video-container">
-                      <video ref={videoRef} autoPlay playsInline className="scanner-video" />
-                      <div className="scanning-laser" />
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: '1rem' }}>
-                      <button className="btn-primary" onClick={handleCapture} style={{ flexGrow: 1 }}>
-                        Capture Photo
-                      </button>
-                      <button className="btn-secondary" onClick={stopCamera}>
-                        <VideoOff size={16} /> Turn Off Camera
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    {/* Uploader Box */}
-                    <label className="uploader-box">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        style={{ display: 'none' }} 
-                        onChange={handleImageUpload} 
-                      />
-                      <Upload className="upload-icon" />
-                      <div style={{ textAlign: 'center' }}>
-                        <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '4px' }}>Upload Fridge Photo</p>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Drag & drop or tap to select image</p>
-                      </div>
-                    </label>
-                    
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>— OR —</div>
-                    
-                    <button className="btn-secondary" onClick={startCamera} style={{ justifyContent: 'center' }}>
-                      <Camera size={18} /> Launch Web Camera
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : inputMode === 'form' ? (
+            inputMode === 'form' ? (
               <form onSubmit={handleFormSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>What is the ingredient name?</label>
@@ -492,36 +409,48 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
                 </button>
               </form>
             ) : (
-              <form onSubmit={handleRecipeSearchSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Search by Recipe Name or Description</label>
-                  <textarea
-                    required
-                    rows={4}
-                    placeholder="e.g. Chocolate Chip Cookies, or a quick breakfast using eggs and cheese"
-                    value={recipeQuery}
-                    onChange={(e) => setRecipeQuery(e.target.value)}
-                    style={{
-                      padding: '12px',
-                      borderRadius: '8px',
-                      background: 'rgba(15, 23, 42, 0.01)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-main)',
-                      fontFamily: 'inherit',
-                      outline: 'none',
-                      resize: 'none'
-                    }}
-                  />
-                </div>
-                <button 
-                  type="submit"
-                  className="btn-primary" 
-                  style={{ justifyContent: 'center', marginTop: '8px' }}
-                  disabled={searchingRecipes}
-                >
-                  <Plus size={18} /> {searchingRecipes ? 'Searching...' : 'Search Recipe'}
-                </button>
-              </form>
+              <div>
+                {cameraActive ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div className="scanner-video-container">
+                      <video ref={videoRef} autoPlay playsInline className="scanner-video" />
+                      <div className="scanning-laser" />
+                    </div>
+                    
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <button className="btn-primary" onClick={handleCapture} style={{ flexGrow: 1 }}>
+                        Capture Photo
+                      </button>
+                      <button className="btn-secondary" onClick={stopCamera}>
+                        <VideoOff size={16} /> Turn Off Camera
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Uploader Box */}
+                    <label className="uploader-box">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        style={{ display: 'none' }} 
+                        onChange={handleImageUpload} 
+                      />
+                      <Upload className="upload-icon" />
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '4px' }}>Upload Fridge Photo</p>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Drag & drop or tap to select image</p>
+                      </div>
+                    </label>
+                    
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>— OR —</div>
+                    
+                    <button className="btn-secondary" onClick={startCamera} style={{ justifyContent: 'center' }}>
+                      <Camera size={18} /> Launch Web Camera
+                    </button>
+                  </div>
+                )}
+              </div>
             )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -535,110 +464,24 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
           )}
         </div>
 
-        {/* Right Side: Scan Processing / Recipe Search / Verification Review Grid */}
+        {/* Right Side: Scan Processing / Verification Review Grid */}
         <div className="glass" style={{ minHeight: '360px', overflow: 'hidden' }}>
-          {inputMode === 'recipeSearch' ? (
-            <>
-              {searchingRecipes && (
-                <div className="loading-container">
-                  <div className="spinner" />
-                  <div>
-                    <h4 style={{ fontWeight: 600, fontSize: '1.2rem', marginBottom: '6px' }}>Searching Recipes...</h4>
-                    <p className="pulse-text">Formulating custom directions and ingredient lists.</p>
-                  </div>
-                </div>
-              )}
+          {loading && (
+            <div className="loading-container">
+              <div className="spinner" />
+              <div>
+                <h4 style={{ fontWeight: 600, fontSize: '1.2rem', marginBottom: '6px' }}>Processing Image...</h4>
+                <p className="pulse-text">Detecting items and identifying matching categories.</p>
+              </div>
+            </div>
+          )}
 
-              {!searchingRecipes && recipes.length === 0 && (
-                <div className="empty-placeholder" style={{ border: 'none', height: '100%' }}>
-                  <Utensils size={32} style={{ color: 'var(--text-muted)', marginBottom: '8px' }} />
-                  <h3>No recipes found</h3>
-                  <p>Enter a recipe name or description on the left panel to search.</p>
-                </div>
-              )}
-
-              {!searchingRecipes && recipes.length > 0 && (
-                <div className="scan-review-container" style={{ padding: '1.5rem', height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                    <h3 className="panel-title" style={{ margin: 0 }}>Matching Recipes</h3>
-                  </div>
-
-                  <div style={{ flexGrow: 1, overflowY: 'auto', maxHeight: '420px', display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingRight: '4px' }}>
-                    {recipes.map((recipe, idx) => (
-                      <div key={idx} className="recipe-card glass" style={{ padding: '1.25rem', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
-                        <div className="recipe-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                          <div>
-                            <h4 className="recipe-title" style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>{recipe.name}</h4>
-                            <div className="recipe-meta" style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                              <span className="badge blue" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px', background: 'rgba(59,130,246,0.1)', color: '#3b82f6' }}>
-                                <Clock size={12} /> {recipe.prepTime}
-                              </span>
-                              <span className="badge purple" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px', background: 'rgba(139,92,246,0.1)', color: '#8b5cf6' }}>
-                                <Gauge size={12} /> {recipe.difficulty}
-                              </span>
-                            </div>
-                          </div>
-                          <span className="badge green" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '3px 8px', borderRadius: '12px', background: 'rgba(16,124,91,0.1)', color: '#107c5b' }}>
-                            <Sparkles size={12} /> Chef Recommended
-                          </span>
-                        </div>
-
-                        {/* Ingredients List */}
-                        <div style={{ marginTop: '1rem' }}>
-                          <div className="section-label" style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '6px' }}>Ingredients</div>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {recipe.usedIngredients && recipe.usedIngredients.map((item, i) => (
-                              <span key={i} className="tag" style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '8px', fontSize: '0.8rem', color: 'var(--text-main)', background: 'rgba(255,255,255,0.02)', padding: '2px 8px', borderRadius: '4px' }}>
-                                {item}
-                              </span>
-                            ))}
-                            {recipe.missingIngredients && recipe.missingIngredients.length > 0 && recipe.missingIngredients.map((item, i) => (
-                              <span key={i} className="tag" style={{ borderLeft: '3px solid var(--warning)', paddingLeft: '8px', fontSize: '0.8rem', color: 'var(--text-main)', background: 'rgba(255,255,255,0.02)', padding: '2px 8px', borderRadius: '4px' }}>
-                                {item}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Steps Section */}
-                        <div style={{ marginTop: '1.25rem' }}>
-                          <div className="section-label" style={{ fontSize: '0.78rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '6px' }}>Cooking Instructions</div>
-                          <ol style={{ paddingLeft: '1.2rem', margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {recipe.steps.map((step, i) => (
-                              <li key={i} style={{ fontSize: '0.85rem', color: 'var(--text-main)', lineHeight: 1.4 }}>{step}</li>
-                            ))}
-                          </ol>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.25rem' }}>
-                    <button className="btn-secondary" onClick={handleReset} style={{ flexGrow: 1, justifyContent: 'center' }}>
-                      Clear Search
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              {loading && (
-                <div className="loading-container">
-                  <div className="spinner" />
-                  <div>
-                    <h4 style={{ fontWeight: 600, fontSize: '1.2rem', marginBottom: '6px' }}>Processing Image...</h4>
-                    <p className="pulse-text">Detecting items and identifying matching categories.</p>
-                  </div>
-                </div>
-              )}
-
-              {!loading && scanResult.length === 0 && !capturedImage && (
-                <div className="empty-placeholder" style={{ border: 'none', height: '100%' }}>
-                  <span className="empty-icon">🍳</span>
-                  <p>Upload a photo or take a camera snapshot to scan ingredients.</p>
-                </div>
-              )}
+          {!loading && scanResult.length === 0 && !capturedImage && (
+            <div className="empty-placeholder" style={{ border: 'none', height: '100%' }}>
+              <span className="empty-icon">🍳</span>
+              <p>Upload a photo or take a camera snapshot to scan ingredients.</p>
+            </div>
+          )}
 
               {!loading && scanResult.length > 0 && (
                 <div className="scan-review-container">
