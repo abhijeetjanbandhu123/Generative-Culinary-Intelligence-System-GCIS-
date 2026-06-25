@@ -635,8 +635,6 @@ function Scanner({ addItemsToPantry, setActiveTab, apiConfigured }) {
                   </div>
                 </div>
               )}
-            </>
-          )}
         </div>
       </div>
     </div>
