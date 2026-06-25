@@ -265,20 +265,7 @@ export default function Auth({ onAuthSuccess }) {
                 )}
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0.25rem 0' }}>
-                <div style={{ flex: 1, height: '1px', background: 'rgba(15,23,42,0.07)' }} />
-                <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>or</span>
-                <div style={{ flex: 1, height: '1px', background: 'rgba(15,23,42,0.07)' }} />
-              </div>
-
-              <button type="button"
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '12px 20px', borderRadius: '12px', background: 'rgba(15,23,42,0.01)', border: '1px solid rgba(15,23,42,0.09)', fontFamily: 'inherit', fontWeight: 600, fontSize: '0.92rem', color: '#0F172A', cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.background = 'rgba(15,23,42,0.03)'}
-                onMouseOut={e => e.currentTarget.style.background = 'rgba(15,23,42,0.01)'}
-              >
-                <GoogleIcon />
-                Continue with Google
-              </button>
+              
 
             </form>
 
